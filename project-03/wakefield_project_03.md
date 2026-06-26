@@ -1,0 +1,481 @@
+---
+title: "Data Visualization for Exploratory Data Analysis"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+---
+
+
+``` r
+library(tidyverse)
+library(lubridate)
+library(ggridges)
+library(viridis)
+library(ggplot2)
+library(dplyr)
+fig_path <- "../figures/"
+```
+
+
+# Data Visualization Project 03
+
+
+In this exercise you will explore methods to create different types of data visualizations (such as plotting text data, or exploring the distributions of continuous variables).
+
+
+## PART 1: Density Plots
+
+Using the dataset obtained from FSU's [Florida Climate Center](https://climatecenter.fsu.edu/climate-data-access-tools/downloadable-data), for a station at Tampa International Airport (TPA) for 2022, attempt to recreate the charts shown below which were generated using data from 2016. You can read the 2022 dataset using the code below: 
+
+
+``` r
+library(tidyverse)
+weather_tpa <- read_csv("../data/tpa_weather_2022.csv")
+# random sample 
+sample_n(weather_tpa, 4)
+```
+
+```
+## # A tibble: 4 × 7
+##    year month   day precipitation max_temp min_temp ave_temp
+##   <dbl> <dbl> <dbl>         <dbl>    <dbl>    <dbl>    <dbl>
+## 1  2022     5     2             0       87       71     79  
+## 2  2022     1    12             0       77       54     65.5
+## 3  2022    10     9             0       90       66     78  
+## 4  2022     2     3             0       85       66     75.5
+```
+
+See Slides from Week 4 of Visualizing Relationships and Models (slide 10) for a reminder on how to use this type of dataset with the `lubridate` package for dates and times (example included in the slides uses data from 2016).
+
+Using the 2022 data: 
+
+(a) Create a plot like the one below:
+
+
+``` r
+weather_tpa_clean <- weather_tpa %>%
+  mutate(
+    date = ymd(paste(year, month, day, sep = "-")),
+    month_label = factor(month(date, label = TRUE, abbr = FALSE), 
+                         levels = month.name)
+  ) %>%
+  filter(max_temp != -99.9)
+ggplot(weather_tpa_clean, aes(x = max_temp, fill = month_label)) +
+  geom_histogram(binwidth = 3, color = "white", linewidth = 0.5) +
+  scale_fill_viridis_d(option = "viridis") +  
+  
+  facet_wrap(~month_label, ncol = 4) +
+  scale_x_continuous(breaks = c(60, 70, 80, 90)) +
+  scale_y_continuous(breaks = c(0, 5, 10, 15, 20)) +
+  coord_cartesian(xlim = c(55, 98), ylim = c(0, 21), expand = FALSE) +
+  
+  labs(
+    x = "Maximum temperatures",
+    y = "Number of Days"
+  ) +
+  theme_bw(base_size = 14) +  
+  theme(
+    legend.position = "none", 
+    strip.background = element_rect(fill = "lightgray", color = "darkgray"), 
+    strip.text = element_text(face = "plain", size = 12), 
+    axis.title.x = element_text(margin = margin(t = 12)),
+    axis.title.y = element_text(margin = margin(r = 12)),
+    panel.grid.minor = element_blank() 
+  )
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis1_monthsmaxtemp.png"),
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+```
+
+<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_facet.png" alt="" width="80%" style="display: block; margin: auto;" />
+
+Hint: the option `binwidth = 3` was used with the `geom_histogram()` function.
+
+(b) Create a plot like the one below:
+
+<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_density.png" alt="" width="80%" style="display: block; margin: auto;" />
+
+
+``` r
+weather_filtered <- subset(weather_tpa, max_temp >= 55 & max_temp <= 96)
+ggplot(weather_filtered, aes(x = max_temp)) +
+  geom_density(
+    bw = 0.5, 
+    kernel = "epanechnikov", 
+    fill = "grey50", 
+    color = "black"
+  ) +
+  scale_x_continuous(
+    breaks = c(60, 70, 80, 90)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.085), 
+    breaks = c(0.00, 0.02, 0.04, 0.06, 0.08),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(
+    x = "Maximum temperature",
+    y = "density"
+  ) +
+  theme_bw() + 
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 10)),
+    axis.title.y = element_text(margin = margin(r = 10))
+  )
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis2_maxtempden.png"),
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+```
+
+
+Hint: check the `kernel` parameter of the `geom_density()` function, and use `bw = 0.5`.
+
+(c) Create a plot like the one below:
+
+<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_density_facet.png" alt="" width="80%" style="display: block; margin: auto;" />
+
+Hint: default options for `geom_density()` were used. 
+
+
+``` r
+weather_tpa_clean <- weather_tpa %>% 
+  mutate(
+    date = ymd(paste(year, month, day, sep = "-")),
+    month_label = factor(month(date, label = TRUE, abbr = FALSE), levels = month.name)
+  ) %>% 
+  filter(max_temp != -99.9)
+ggplot(weather_tpa_clean, aes(x = max_temp, fill = month_label)) +
+  geom_density(alpha = 0.6) + 
+  scale_fill_viridis_d(option = "viridis") + 
+  facet_wrap(~month_label, ncol = 4) + 
+  scale_x_continuous(breaks = c(60, 70, 80, 90)) + 
+  scale_y_continuous(breaks = c(0.00, 0.05, 0.10, 0.15, 0.20, 0.25)) + 
+  coord_cartesian(xlim = c(55, 98), ylim = c(0, 0.26), expand = FALSE) + 
+  labs(
+    title = "Density plots for each month in 2022",
+    x = "Maximum temperatures", 
+    y = "" 
+  ) + 
+  theme_bw(base_size = 14) + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16), 
+    legend.position = "none", 
+    strip.background = element_rect(fill = "lightgray", color = "darkgray"), 
+    strip.text = element_text(face = "plain", size = 12), 
+    axis.title.x = element_text(margin = margin(t = 12)), 
+    panel.grid.minor = element_blank()
+  )
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis3_monthsdensity.png"),
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+```
+
+
+(d) Generate a plot like the chart below:
+
+
+<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_ridges_plasma.png" alt="" width="80%" style="display: block; margin: auto;" />
+
+``` r
+weather_ridges <- weather_tpa %>%
+  filter(max_temp != -99.9) %>%
+  mutate(
+    month_label = factor(
+      month.name[month],
+      levels = month.name
+    )
+  )
+
+ggplot(
+  weather_ridges,
+  aes(
+    x = max_temp,
+    y = month_label,
+    fill = after_stat(x)
+  )
+) +
+  ggridges::geom_density_ridges_gradient(
+    quantile_lines = TRUE,
+    quantiles = 2
+  ) +
+  scale_fill_viridis_c(option = "plasma") +
+  scale_x_continuous(
+    limits = c(50, 100),
+    breaks = seq(50, 100, 10),
+    expand = c(0, 0)
+  ) +
+  labs(
+    x = "Maximum temperature (in Fahrenheit degrees)",
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+```
+
+```
+## Picking joint bandwidth of 1.87
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis4_maxtemppermonth.png"),
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+```
+
+```
+## Picking joint bandwidth of 1.87
+```
+
+Hint: use the`{ggridges}` package, and the `geom_density_ridges()` function paying close attention to the `quantile_lines` and `quantiles` parameters. The plot above uses the `plasma` option (color scale) for the _viridis_ palette.
+
+
+(e) Create a plot of your choice that uses the attribute for precipitation _(values of -99.9 for temperature or -99.99 for precipitation represent missing data)_.
+
+
+``` r
+weather_precip <- weather_tpa %>%
+  mutate(
+    date = ymd(paste(year, month, day, sep = "-")),
+    month_label = factor(
+      month(date, label = TRUE, abbr = FALSE),
+      levels = month.name
+    )
+  ) %>%
+  filter(precipitation != -99.99)
+
+ggplot(weather_precip, aes(x = month_label, y = precipitation, fill = month_label)) +
+  
+  geom_boxplot(
+    color = "black",
+    outlier.alpha = 0.4
+  ) +
+  
+  scale_fill_viridis_d(option = "viridis") +
+  
+  scale_y_continuous(
+    breaks = c(0, 1, 2, 3),
+    limits = c(0, 3)
+  ) +
+  
+  labs(
+    title = "Monthly Distribution of Precipitation",
+    x = "Month",
+    y = "Daily Precipitation (in)"
+  ) +
+  
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  )
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis5_monthprecipitation.png"),
+  width = 8,
+  height = 5,
+  dpi = 300)
+```
+
+
+## PART 2 
+
+### Option (B): Data on Concrete Strength 
+
+Concrete is the most important material in **civil engineering**. The concrete compressive strength is a highly nonlinear function of _age_ and _ingredients_. The dataset used here is from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php), and it contains 1030 observations with 9 different attributes 9 (8 quantitative input variables, and 1 quantitative output variable). A data dictionary is included below: 
+
+
+Variable                      |    Notes                
+------------------------------|-------------------------------------------
+Cement                        | kg in a $m^3$ mixture             
+Blast Furnace Slag            | kg in a $m^3$ mixture  
+Fly Ash                       | kg in a $m^3$ mixture             
+Water                         | kg in a $m^3$ mixture              
+Superplasticizer              | kg in a $m^3$ mixture
+Coarse Aggregate              | kg in a $m^3$ mixture
+Fine Aggregate                | kg in a $m^3$ mixture      
+Age                           | in days                                             
+Concrete compressive strength | MPa, megapascals
+
+
+Below we read the `.csv` file using `readr::read_csv()` (the `readr` package is part of the `tidyverse`)
+
+
+``` r
+concrete <- read_csv("../data/concrete.csv", col_types = cols())
+```
+
+
+Let us create a new attribute for visualization purposes, `strength_range`: 
+
+
+``` r
+new_concrete <- concrete %>%
+  mutate(strength_range = cut(Concrete_compressive_strength, 
+                              breaks = quantile(Concrete_compressive_strength, 
+                                                probs = seq(0, 1, 0.2))) )
+```
+
+
+
+1. Explore the distribution of 2 of the continuous variables available in the dataset. Do ranges make sense? Comment on your findings.
+
+``` r
+ggplot(concrete, aes(x = Cement)) +
+  geom_histogram(binwidth = 50, fill = "lightblue", color = "white") +
+  labs(title = "Distribution of Cement",
+       x = "Cement", y = "Count")
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+##### Interpretations:
+Cement values are spread out but they tend to cluster in the mid-range. There seems to be no outliers and the distribution is balanced. This makes sense because concrete mixes tend to vary within these engineering ranges.
+
+
+
+``` r
+ggplot(concrete, aes(x = Water)) +
+  geom_histogram(binwidth = 10, fill = "lightblue", color = "white") +
+  labs(title = "Distribution of Water",
+       x = "Water", y = "Count")
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+##### Interpretations:
+Water content is more grouped together compared to cement. This is expected due to the water to cement ratio is controlled.
+
+2. Use a _temporal_ indicator such as the one available in the variable `Age` (measured in days). Generate a plot similar to the one shown below. Comment on your results.
+
+<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/concrete_strength.png" alt="" width="80%" style="display: block; margin: auto;" />
+
+``` r
+new_concrete <- concrete %>% 
+  mutate(
+    strength_range = cut(
+      Concrete_compressive_strength, 
+      breaks = quantile(Concrete_compressive_strength, probs = seq(0, 1, 0.2)),
+      include.lowest = TRUE
+    ),
+    Age_Factor = factor(Age, levels = sort(unique(Age)))
+  )
+ggplot(new_concrete, aes(x = Age_Factor, y = Concrete_compressive_strength, fill = strength_range)) +
+  geom_boxplot(
+    outlier.size = 1.5,      
+    outlier.shape = 16,      
+    linewidth = 0.5,         
+    color = "black"          
+  ) +
+  scale_fill_viridis_d(
+    name = "Strength Range",
+    option = "viridis", 
+    direction = -1     
+  ) +
+  labs(
+    x = "Age (in days)",
+    y = "Compressive Strength (in MPa)"
+  ) +
+  theme_minimal(base_size = 12) + 
+  theme(
+    axis.line = element_line(color = "black", linewidth = 0.2),
+    legend.position = "right"
+  )
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis6_concrete1.png"),
+  width = 8,
+  height = 5,
+  dpi = 300)
+```
+###### Comment
+From this, we can tell that concrete compression strength increases as age increase. When it is newer, the strength values are more spread out and tend to be lower. As age increases, the strength increases and becomes more concentrated in higher rangers. 
+
+3. Create a scatterplot similar to the one shown below. Pay special attention to which variables are being mapped to specific aesthetics of the plot. Comment on your results. 
+
+<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/cement_plot.png" alt="" width="80%" style="display: block; margin: auto;" />
+
+``` r
+ggplot(concrete, aes(x = Cement, 
+                     y = Concrete_compressive_strength, 
+                     size = Age, 
+                     color = Water)) +
+  geom_point(alpha = 0.6) +
+  scale_color_viridis_c(option = "viridis") +
+  scale_size_continuous(range = c(1, 6), breaks = c(100, 200, 300)) +
+  labs(
+    title = "Exploring Strength versus (Cement, Age, and Water)",
+    x = "Cement",
+    y = "Strength",
+    caption = "Age is measured in days"
+  ) +
+  guides(
+    size = guide_legend(order = 1),
+    color = guide_colorbar(order = 2)
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(hjust = 0.1, face = "plain", size = 14),
+    plot.caption = element_text(hjust = 0.8, size = 10, color = "black"),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 11, face = "plain"),
+    legend.position = "right"
+  )
+```
+
+![](wakefield_project_03_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+
+``` r
+ggsave(
+  filename = paste0(fig_path, "project3_vis7_concrete2.png"),
+  width = 8,
+  height = 5,
+  dpi = 300)
+```
+###### Comment
+From this, we can see that concrete compression strength increases as cement content increases, which from this we can determine that there is a positive relationship between cement and strength. Age/larger points tend to have higher strength which indicates that more curing time allows for increased strength. For water, the higher the water content, there is a negative effect on strength. 
+
+

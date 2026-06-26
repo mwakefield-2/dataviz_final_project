@@ -1,0 +1,201 @@
+---
+title: "Data Visualization - Mini-Project 2"
+author: "Michael Wakefield `mwakefield1326@floridapoly.edu`"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(forcats)
+library(htmlwidgets)
+
+fig_path <- "../figures/"
+```
+
+# Load Data
+
+```{r}
+fifa <- read_csv("../data/fifa18.csv")
+colnames(fifa) #checking columns names to use for data
+```
+### Cleaning Data and Summarizing 
+
+# Clean Data
+
+```{r}
+fifa_clean <- fifa %>%
+  drop_na()
+```
+
+---
+
+# Summary Statistics
+
+```{r}
+fifa_clean %>%
+  summarise(
+    total_players = n(),
+    avg_rating = mean(overall),
+    max_rating = max(overall),
+    min_rating = min(overall)
+  )
+```
+
+# Visualization 1:
+## Interactive Age vs Rating
+
+This first plot is an interactive plot that shows the relationship between age and rating. When hovering over a point, the players name will show.
+
+```{r}
+interactive <- ggplot(
+  fifa_clean,
+  aes(
+    x = age,
+    y = overall,
+    text = name
+  )
+) +
+  geom_point(alpha = 0.5, color = "blue") +
+  theme_minimal() +
+  labs(
+    title = "Age vs Rating",
+    x = "Age",
+    y = "Rating"
+  ) +
+  annotate("text",x = 40,y = 90,label = "Elite player",size = 4)
+
+ggplotly(interactive, tooltip = "text")
+```
+
+```{r}
+htmlwidgets::saveWidget(
+  ggplotly(interactive),
+  file = paste0(fig_path, "project2_vis1_interactive.html"),
+  selfcontained = TRUE)
+htmlwidgets::saveWidget(
+  ggplotly(interactive),
+  "project2_vis1_interactive.html",
+  selfcontained = TRUE)
+```
+#### Analysis
+Player rating show a very clear relationship with age. Younger players tend to have lower rating, as age increase performance increases until around **25** to **30**. After that point, ratings tend to decline. This interactive chart is vary different from a static image. Static images just show the plot and nothing else, interactive charts allow the user to zoom in/out and hover over points to show specially what point is which data/player.
+
+
+# Visualization 2: 
+## Spatial Global Rating 
+
+This plot will show a map of the world with the average FIFA player rating by country.
+
+```{r}
+countryavg <- fifa_clean %>%
+  group_by(nationality) %>%
+  summarise(avg_rating = mean(overall, na.rm = TRUE))
+```
+
+
+```{r}
+
+world <- st_read(
+  "../data/Data_shapefile/ne_110m_admin_0_countries.shp",
+  quiet = TRUE
+)
+
+world_fifa <- world %>%
+  left_join(countryavg, by = c("ADMIN" = "nationality"))
+```
+
+```{r}
+ggplot(world_fifa) +
+  geom_sf(aes(fill = avg_rating)) +
+  scale_fill_viridis_c(na.value = "gray") +
+  theme_minimal() +
+  labs(
+    title = "FIFA 18 Rating by Country",
+    fill = "Rating"
+  )
+ggsave(
+  filename = paste0(fig_path, "project2_vis2_country_map.png"),
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+```
+
+#### Analysis
+This spatial distribution of rating between counties really show the quality in players across countries. The higher rated countries tend to be concentrated in countries that have a good soccer infrastructure and presence. However, there are some limitations in this data set due to missing or naming mismatches between FIFA labels and spatial dataset ids.
+
+# Visualization 3:
+## Regression Model Age vs Potential 
+
+
+```{r}
+model <- lm(overall ~ age + potential, data = fifa_clean)
+
+tidy_model <- tidy(model, conf.int = TRUE) %>%
+  filter(term != "(Intercept)")
+```
+
+
+```{r}
+ggplot(tidy_model, aes(x = estimate, y = fct_rev(term))) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  geom_vline(xintercept = 0) +
+  labs(
+    title = "Affecting Player Rating",
+    x = "Effect on Overall Rating",
+    y = ""
+  ) +
+  theme_minimal()
+
+ggsave(
+  filename = paste0(fig_path, "project2_vis3_regression.png"),
+  width = 7,
+  height = 5,
+  dpi = 300
+)
+```
+#### Analysis
+From the regression model, it shows that both age and potential play a major rule in overall player rating. Both age and potential are positive, meaning that increases in these variable cause increased overall rating with other factors constant. However, the interpretation of age is a little bit limited in a linear model because player performance is not always linear across age.
+
+---
+### Project Report
+
+#### 1. Charts and Data Prep
+I planned to create three main plots using the FIFA 18 Dataset:
+  1. Interactive Plot: This was accomplished by creating an interactive scatter plot that showed the relationship between age and rating. When hovering over a point the players name would appear
+  2. Spatial Plot: This was accomplished by creating a world map and showing the average player overall by country.
+  3. Model Plot: This was accomplished by creating a linear regression to predict and understand that ave and potential have the greatest impact on overall
+Data Prep required:
+  1. Remove missing values. Removing missing values is a key step to make sure that all visualization were complete with no gaps. In order to do this, I used the function drop_na()
+  2. Reviewing Columns. A key part of creating these plots are to find relevant variables and to make sure that the columns names in the data set matches what you are trying to plot. One wrong character creates a error.
+  3. For the spatial plot i needed to prep the data by nationality. I used group_by() and summarise() to find the average overall by country. After summarizing the data, I merged it with the world shapefile
+  
+#### 2. Story
+
+All three of these visualization plots really connect to each other and tells a story about player development, distribution of talent around the world, and predictors during FIFA 2018.
+The interactive plot which is the age vs ratings, shows that performances really tends to peak in the 25 to 35 year range. Having the interactive feature allows people to specifically see players names allowing the data to be engaging and meaningful.
+The spatial plots shows that player rating is not distributed evenly across the world. Certain countries have higher rated overalls, which show which countries have better/different development programs and more interest in soccer.
+The regression plots shows that both age and potential have a major impact on predicting overall rating. 
+Having all three of these plots together shows a good understanding of how overall is affected all around the world.
+
+Challenges: When creating these plots I ran into two issues; 1. Ran into an issue with matching nationality names with countries where I would keep getting missing values. 2. I ran into issues saving the interactive plot. 
+Additional Approaches: 1. Create a more detailed plots/visualizations that helped understands different trends by player position or league. 2: If multiples years of FIFA data were avaiable, I would create different visualizations to track trends over the years.
+
+#### 3. Design Principles:
+The key principles of data visualizations that were used:
+  1. Using Plotly to create exploratory values and allowing us to hover over players and get additional data.
+  2. Using a consistent theme (theme_minimal()) to maintain a consistency theme across all plots
+  3. Each plot was well label and easy to understand and gain information.
+

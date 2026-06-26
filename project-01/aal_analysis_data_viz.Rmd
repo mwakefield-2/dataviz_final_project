@@ -1,0 +1,208 @@
+---
+title: "Data Visualization - Mini-Project 1"
+author: "Michael Wakefield `mwakefield1326@floridapoly.edu`"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+theme_set(theme_minimal(base_size = 13))
+fig_path <- "../figures/"
+```
+
+
+# Mini-Project 1 - Finishers of the Boston Marathon of 2017
+
+## Introduction
+
+This project explores data of the finishers of the 2017 Boston Marathon. The main objective is to analyze the participant demographics and investigate how age and gender relate to marathon performance. Three visualizations are used to explore age distribution, finish times, and runner pace.
+
+## Load Dataset
+
+```{r}
+marathon <- read_csv(
+  "../data/marathon_results_2017.csv",
+  na = c("", "-", "NA"),
+  col_types = cols(
+    Name = col_character(),
+    Age = col_double(),
+    `M/F` = col_character(),
+    `Official Time` = col_character(),
+    Pace = col_character()
+  )
+)
+```
+
+## Clean Dataset
+
+```{r}
+marathon_clean <- marathon %>%
+  select(Name, Age, `M/F`, `Official Time`, Pace) %>%
+  drop_na()
+```
+
+
+Convert the time columns into minutes
+
+```{r}
+time_to_minutes <- function(x) {
+  sapply(strsplit(x, ":"), function(parts) {
+    parts <- as.numeric(parts)
+
+    if (length(parts) == 3) {
+      parts[1] * 60 + parts[2] + parts[3] / 60
+    } else if (length(parts) == 2) {
+      parts[1] + parts[2] / 60
+    } else {
+      NA
+    }
+  })
+}
+
+marathon_clean <- marathon_clean %>%
+  mutate(
+    total_minutes = time_to_minutes(`Official Time`),
+    pace_min = time_to_minutes(Pace)
+  )
+```
+
+
+# Visulaization 1 
+## Runner's Age Distribution
+
+```{r}
+mean_age <- mean(marathon_clean$Age)
+
+ggplot(marathon_clean, aes(x = Age)) +
+  geom_histogram(
+    binwidth = 3,
+    fill = "lightblue",
+    color = "white"
+  ) +
+  geom_vline(
+    xintercept = mean_age,
+    linetype = "dashed",
+    linewidth = 1
+  ) +
+  annotate(
+    "text",
+    x = mean_age + 10,
+    y = 2500,
+    label = paste("Mean Age =", round(mean_age,1))
+  ) +
+  labs(
+    title = "Age Distribution of Boston Marathon Finishers",
+    subtitle = "Majority of runners between 25 and 55",
+    x = "Age",
+    y = "Number of Runners"
+  )
+
+ggsave(
+  filename = paste0(fig_path, "project1_vis1_age_distribution.png"),
+  width = 7,
+  height = 5,
+  dpi = 300
+)
+```
+###Analysis:
+The age distribution shows that most of the runners are between ages **25** and **55**. From this data, it can be seen that running is mainly popular with runners that can balance physical abilities and discipline needed for long runs and training. Younger runners tend to less endurance training, while other runners tend to have more limitations. However, it can be seen that there are runners over 60, which prove that running marathons across a wide range of ages.
+
+# Visualization 2
+## Average Finish Time by Gender and Age Group
+
+
+```{r}
+finish_time_plot <- marathon_clean %>%
+  mutate(
+    age_group = case_when(
+      Age < 20 ~ "Under 20",
+      Age < 30 ~ "20-29",
+      Age < 40 ~ "30-39",
+      Age < 50 ~ "40-49",
+      Age < 60 ~ "50-59",
+      TRUE ~ "60+"
+    )
+  )
+
+finish_time_plot$age_group <- factor(
+  finish_time_plot$age_group,
+  levels = c("Under 20","20-29","30-39","40-49","50-59","60+")
+)
+
+ggplot(
+  finish_time_plot,
+  aes(x = age_group, y = total_minutes, fill = `M/F`)
+) +
+  geom_boxplot() +
+  labs(
+    title = "Finish Time Distribution by Age Group and Gender",
+    x = "Age Group",
+    y = "Finish Time (in Mins)",
+    fill = "Gender"
+  )
+ggsave(
+  filename = paste0(fig_path, "project1_vis2_finish_time_boxplot.png"),
+  width = 7,
+  height = 5,
+  dpi = 300
+)
+```
+
+### Analysis
+
+From this time distributions, it can be seen that peak performance occurs between ages **20** and **39**. This group shows a lower median finish and less variability in comparison to older groups. Overtime, performance gradually declines, this is likely due to decreased endurance and physical limitation. Additionally, male runners are generally faster than female runners across most age groups, which may reflect physiological differences. 
+
+# Visualization 3
+## Runner Pace Distribution by Age Group
+
+```{r}
+ggplot(marathon_clean, aes(x = Age, y = pace_min, color = `M/F`)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(
+    title = "Age vs Running Pace",
+    x = "Age",
+    y = "Pace (Minutes per Mile)",
+    color = "Gender"
+  ) +
+  theme_minimal()
+
+ggsave(
+  filename = paste0(fig_path, "project1_vis3_age_vs_pace.png"),
+  width = 7,
+  height = 5,
+  dpi = 300
+)
+```
+#### Analysis
+Overall, pace tended to increase as age increases. However, this relationship is not linear. Younger runners tended to show faster and more consistent pace, while older runners had a wider spread. Individual training and experience became more important with age. The trend line really helps show the overall pattern as age increases.
+
+
+---
+
+# Report 
+
+#### What were the original charts you planned to create for this assignments?
+
+For this assignment, the original charts I planned were first a histogram to show the age distribution of the Boston Marathon runners. The second chart was a bar chart to compare the average finish times by age group and gender. The third chart was planned to be a scatter plot to compare the age group and pace. However, after trying this chart, the data looked like a blob and did not mean anything. To resolve this issue, I changed to a boxplot to show the distribution of runner pace across the age groups. Changing from a scatter plot to a box plot really made a big difference in making it very clear and easy to understand. Overall, these three data visualizations were selected to show both participant demographics and the relationships among age, gender, and marathon performance. 
+
+
+#### What story could you tell with your plots?
+
+All three plots really tell a story about how marathon participants and performance vary across different demographics. From the very first data visualization, age distributions show that age does not really stop anyone from running. Some runners are older than 70 years old, but most runners tend to fall between 25 and 55 years old. This shows that running marathons is more popular among adults in their prime years. However, there were still runners under 20 and over 60 years old, but there was a clear concentration in the middle-aged groups. 
+
+The performance visualizations really showed me that age and gender both have an impact on marathon results. Younger runners tend to have faster finish times and better pace. The average performance tended to decline as the runners got older. These charts also showed that male runners generally had faster average finish times than female runners across most of the age groups. Overall, these visualizations really show the key demographic trends and how characteristics can really relate to performance. 
+
+
+#### How did you apply the principles of data visualizations and design for this assignment?
+
+I applied the data visualization principles by selecting three different chart types that really matched the data and the point that was being explored. Each chart has clear tiles, axis labels, and consistent formatting to have clear readability and interpretation. Each visualization was created to be simple and uncluttered and created in a sense that anyone can quickly identify patterns, compare groups, and understand the data that is being collected.
